@@ -1,0 +1,19 @@
+#!/bin/bash
+
+JMETER_HOME="${JMETER_HOME-~/apache-jmeter-3.2}"
+IP="${IP}"
+REMOTE_HOSTS="${REMOTE_HOSTS}"
+
+JMX="${1}"
+DIR="${2-./jmeter-test}"
+
+R="${REMOTE_HOSTS}"
+if [ ${R} ]; then
+	R="-R ${R}"
+fi
+
+DIR="${DIR}/$(date "+%Y-%m-%d/%H.%M.%S")"
+mkdir -p ${DIR}
+
+exec ${JMETER_HOME}/bin/jmeter -n -t ${JMX} -D "java.rmi.server.hostname=${IP}" \
+-l ${DIR}/result.jtl -e -o ${DIR}/dashboard ${R}
