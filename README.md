@@ -2,6 +2,8 @@
 
 Manage Apache JMeter (distributed) load tests.
 
+<pre>
+
 Usage:
 
 jmeter [OPTONS] run JMX
@@ -37,4 +39,7 @@ jmeter perfmon ACTION MACHINE
 
 jmeter help
   Display this message.
+
+</pre>
+
 
