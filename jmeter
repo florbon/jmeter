@@ -99,6 +99,15 @@ run)
 	echo "* starting test..."
 	exec ${JMETER_HOME}/bin/jmeter -n -t ${JMX} ${D} \
 	-l ${DIR}/result.jtl -e -o ${DIR}/dashboard ${R}
+
+	# docker-machine scp petities.jmx dev-manager-1:jmeter-test/petities.jmx
+
+	# docker run --rm \
+	# --env IP=192.168.99.100 \
+	# -v /home/docker/jmeter-test/petities.jmx:/jmx \
+	# -v /home/docker/jmeter-test/results:/results \
+	# wscherphof/jmeter:3.2 \
+	# master 192.168.99.100,192.168.99.101
 ;;
 
 perfmon)
