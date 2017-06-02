@@ -11,15 +11,14 @@ usage ()
 	echo
 	echo "Usage:"
 	echo
-	echo "$(basename $0) run JMX MACHINE [REMOTE_HOST...]"
+	echo "$(basename $0) run JMX MACHINE [REMOTE_MACHINE...]"
 	echo "  Run the given test in non-gui mode, locally or remote, generating"
 	echo "  a dashboard report."
-	echo "  JMX             Path to the .jmx file."
-	echo "  MACHINE         The docker-machine that should run the test."
-	echo "  REMOTE_HOST...  Any number of host names or IP addresses of remote"
-	echo "                  slave servers to use for distributed testing."
-	echo "                  If unset, the test is run locally."
-	# TODO make it a list of machine names
+	echo "  JMX                Path to the .jmx file."
+	echo "  MACHINE            The docker-machine that should run the test."
+	echo "  REMOTE_MACHINE...  Any number of names of docker-machines with remote"
+	echo "                     slave servers to use for distributed testing."
+	echo "                     If unset, the test is run locally."
 	echo
 	echo "$(basename $0) server ACTION MACHINE"
 	echo "  Manage remote JMeter slave servers."
@@ -55,13 +54,17 @@ case "${COMMAND}" in
 
 run)
 	JMX="${2}"
-	docker-machine scp $(absolute ${JMX}) ${MACHINE}:jmx
-
-	shift 3
-	REMOTE_HOSTS="$*"
-	# TODO: read IPs from remote machine names
+	docker-machine scp $(absolute ${JMX}) ${MACHINE}:jmx >/dev/null
 
 	IP=$(docker-machine ip ${MACHINE})
+
+	shift 3
+	REMOTE_MACHINES="$*"
+	REMOTE_HOSTS=""
+	for server in ${REMOTE_MACHINES}; do
+		REMOTE_HOSTS="$(docker-machine ip ${server}) ${REMOTE_HOSTS}"
+	done
+
 
 	echo "* starting test..."
 	$run "sudo ufw allow 60000 && sudo ufw reload" 2>/dev/null
@@ -80,7 +83,7 @@ run)
 	DIR="./jmeter-test/$(date "+%Y-%m-%d/%H.%M.%S")"
 	mkdir -p ${DIR}
 
-	docker-machine scp -r ${MACHINE}:results $(absolute ${DIR})
+	docker-machine scp -r ${MACHINE}:results $(absolute ${DIR}) >/dev/null
 	echo "* results saved in ${DIR}"
 ;;
 
