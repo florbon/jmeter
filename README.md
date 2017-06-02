@@ -1,6 +1,8 @@
 # jmeter
 
-Manage Apache JMeter (distributed) load tests.
+Manage Apache JMeter (distributed) load tests with Docker.
+
+In other words: JMeter [MTA](https://blog.docker.com/2017/04/modernizing-traditional-apps-with-docker/)'d :-)
 
 <pre>
 
