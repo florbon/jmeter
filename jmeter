@@ -19,9 +19,10 @@ usage ()
 	echo "  REMOTE_HOST...  Any number of host names or IP addresses of remote"
 	echo "                  slave servers to use for distributed testing."
 	echo "                  If unset, the test is run locally."
+	# TODO make it a list of machine names
 	echo
 	echo "$(basename $0) server ACTION MACHINE"
-	echo "  Manage remote JMeter slaves (servers)"
+	echo "  Manage remote JMeter slave servers."
 	echo "  ACTION   Either start, stop, or restart."
 	echo "  MACHINE  The targeted docker-machine."
 	echo
@@ -58,6 +59,7 @@ run)
 
 	shift 3
 	REMOTE_HOSTS="$*"
+	# TODO: read IPs from remote machine names
 
 	IP=$(docker-machine ip ${MACHINE})
 
