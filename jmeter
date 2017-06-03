@@ -20,27 +20,20 @@ usage ()
 	echo "                     slave servers to use for distributed testing."
 	echo "                     If unset, the test is run locally."
 	echo
-	echo "$(basename $0) server ACTION MACHINE"
+	echo "$(basename $0) server ACTION MACHINE[...]"
 	echo "  Manage remote JMeter slave servers."
 	echo "  ACTION   Either start, stop, or restart."
-	echo "  MACHINE  The targeted docker-machine."
+	echo "  MACHINE  One or more targeted docker-machines."
 	echo
-	echo "$(basename $0) perfmon ACTION MACHINE"
+	echo "$(basename $0) perfmon ACTION MACHINE[...]"
 	echo "  Manage the PerfMon Server Agent on application servers."
 	echo "  ACTION   Either start, stop, or restart."
-	echo "  MACHINE  The targeted docker-machine."
+	echo "  MACHINE  One or more targeted docker-machines."
 	echo
 	echo "$(basename $0) help"
 	echo "  Display this message."
 	echo
 }
-
-COMMAND="$1"
-MACHINE="$3"
-if [ ! $MACHINE ]; then
-	usage; exit 1
-fi
-run="docker-machine ssh $MACHINE"
 
 absolute ()
 {
@@ -50,10 +43,11 @@ absolute ()
 	echo "$dir/$base"
 }
 
-case "${COMMAND}" in
+case "$1" in
 
 run)
-	JMX="${2}"
+	JMX="$2"
+	MACHINE="$3"
 	docker-machine scp $(absolute ${JMX}) ${MACHINE}:jmx >/dev/null
 
 	IP=$(docker-machine ip ${MACHINE})
@@ -65,8 +59,8 @@ run)
 		REMOTE_HOSTS="$(docker-machine ip ${server}) ${REMOTE_HOSTS}"
 	done
 
-
 	echo "* starting test..."
+	run="docker-machine ssh ${MACHINE}"
 	$run "sudo ufw allow 60000 && sudo ufw reload" 2>/dev/null
 	$run docker run --rm --name master \
 		--env IP=${IP} \
@@ -76,54 +70,67 @@ run)
 		wscherphof/jmeter:3.2 \
 		master ${REMOTE_HOSTS}
 
-	if [ "$?" != "0" ]; then
-		exit $?
-	fi
+	code="$?"
 
 	DIR="./jmeter-test/$(date "+%Y-%m-%d/%H.%M.%S")"
 	mkdir -p ${DIR}
 
 	docker-machine scp -r ${MACHINE}:results $(absolute ${DIR}) >/dev/null
-	echo "* results saved in ${DIR}"
-;;
-
-perfmon)
-	action=$2
-	start="$run docker run --rm --detach --publish 4444:4444 --name perfmon wscherphof/perfmon:2.2.1"
-	stop="$run docker kill perfmon"
-	if [ "$action" = "start" ]; then
-		$run "sudo ufw allow 4444 && sudo ufw reload" 2>/dev/null
-		$start
-	elif [ "$action" = "stop" ]; then
-		$stop
-		$run "sudo ufw deny 4444 && sudo ufw reload" 2>/dev/null
-	elif [ "$action" = "restart" ]; then
-		$stop
-		$start
+	if [ "$code" = "0" ]; then
+		echo "* results saved in ${DIR}"
 	else
-		usage; exit 1
+		echo "* logs saved in ${DIR}"
+		exit ${code}
 	fi
 ;;
 
-server)
-	action=$2
-	stop="$run docker kill slave"
-	if [ "$action" = "stop" ]; then
-		$stop
-		$run "sudo ufw deny 1099 && sudo ufw reload" 2>/dev/null
-	else
-		ip=$(docker-machine ip $MACHINE)
-		start="$run docker run --rm --detach --publish 1099:1099 --name slave --env IP=$ip wscherphof/jmeter:3.2"
-		if [ "$action" = "restart" ]; then
-			$stop
+perfmon)
+	ACTION="$2"
+	shift 2
+	MACHINES="$*"
+	for machine in ${MACHINES}; do
+		run="docker-machine ssh ${machine}"
+		start="$run docker run --rm --detach --publish 4444:4444 --name perfmon wscherphof/perfmon:2.2.1"
+		stop="$run docker kill perfmon"
+		if [ "$ACTION" = "start" ]; then
+			$run "sudo ufw allow 4444 && sudo ufw reload" 2>/dev/null
 			$start
-		elif [ "$action" = "start" ]; then
-			$run "sudo ufw allow 1099 && sudo ufw reload" 2>/dev/null
+		elif [ "$ACTION" = "stop" ]; then
+			$stop
+			$run "sudo ufw deny 4444 && sudo ufw reload" 2>/dev/null
+		elif [ "$ACTION" = "restart" ]; then
+			$stop
 			$start
 		else
 			usage; exit 1
 		fi
-	fi
+	done
+;;
+
+server)
+	ACTION="$2"
+	shift 2
+	MACHINES="$*"
+	for machine in ${MACHINES}; do
+		run="docker-machine ssh ${machine}"
+		stop="$run docker kill slave"
+		if [ "$ACTION" = "stop" ]; then
+			$stop
+			$run "sudo ufw deny 1099 && sudo ufw reload" 2>/dev/null
+		else
+			ip=$(docker-machine ip ${machine})
+			start="$run docker run --rm --detach --publish 1099:1099 --name slave --env IP=$ip wscherphof/jmeter:3.2"
+			if [ "$ACTION" = "restart" ]; then
+				$stop
+				$start
+			elif [ "$ACTION" = "start" ]; then
+				$run "sudo ufw allow 1099 && sudo ufw reload" 2>/dev/null
+				$start
+			else
+				usage; exit 1
+			fi
+		fi
+	done
 ;;
 
 help)
