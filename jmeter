@@ -43,6 +43,70 @@ absolute ()
 	echo "$dir/$base"
 }
 
+parallel ()
+{
+	COMMAND="$1"
+	ACTION="$2"
+	shift 2
+	MACHINES="$*"
+	for machine in ${MACHINES}; do
+		${COMMAND} ${ACTION} ${machine} &
+	done
+	wait
+}
+
+report ()
+{
+	action="$1"
+	machine="$2"
+	echo "${machine} - $(${action})"
+}
+
+perfmon ()
+{
+	action="$1"
+	machine="$2"
+	run="docker-machine ssh ${machine}"
+	start="$run docker run --rm --detach --publish 4444:4444 --name perfmon wscherphof/perfmon:2.2.1"
+	stop="$run docker kill perfmon"
+	if [ "$action" = "start" ]; then
+		$run "sudo ufw allow 4444 && sudo ufw reload" 2>/dev/null
+		report "$start" "$machine"
+	elif [ "$action" = "stop" ]; then
+		report "$stop" "$machine"
+		$run "sudo ufw deny 4444 && sudo ufw reload" 2>/dev/null
+	elif [ "$action" = "restart" ]; then
+		report "$stop" "$machine"
+		report "$start" "$machine"
+	else
+		usage; exit 1
+	fi
+}
+
+server ()
+{
+	action="$1"
+	machine="$2"
+	run="docker-machine ssh ${machine}"
+	stop="$run docker kill slave"
+	if [ "$action" = "stop" ]; then
+		report "$stop" "$machine"
+		$run "sudo ufw deny 1099 && sudo ufw reload" 2>/dev/null
+	else
+		ip=$(docker-machine ip ${machine})
+		start="$run docker run --rm --detach --publish 1099:1099 --name slave --env IP=$ip wscherphof/jmeter:3.2"
+		if [ "$action" = "restart" ]; then
+		report "$stop" "$machine"
+		report "$start" "$machine"
+		elif [ "$action" = "start" ]; then
+			$run "sudo ufw allow 1099 && sudo ufw reload" 2>/dev/null
+		report "$start" "$machine"
+		else
+			usage; exit 1
+		fi
+	fi
+}
+
 case "$1" in
 
 run)
@@ -85,52 +149,11 @@ run)
 ;;
 
 perfmon)
-	ACTION="$2"
-	shift 2
-	MACHINES="$*"
-	for machine in ${MACHINES}; do
-		run="docker-machine ssh ${machine}"
-		start="$run docker run --rm --detach --publish 4444:4444 --name perfmon wscherphof/perfmon:2.2.1"
-		stop="$run docker kill perfmon"
-		if [ "$ACTION" = "start" ]; then
-			$run "sudo ufw allow 4444 && sudo ufw reload" 2>/dev/null
-			$start
-		elif [ "$ACTION" = "stop" ]; then
-			$stop
-			$run "sudo ufw deny 4444 && sudo ufw reload" 2>/dev/null
-		elif [ "$ACTION" = "restart" ]; then
-			$stop
-			$start
-		else
-			usage; exit 1
-		fi
-	done
+	parallel $*
 ;;
 
 server)
-	ACTION="$2"
-	shift 2
-	MACHINES="$*"
-	for machine in ${MACHINES}; do
-		run="docker-machine ssh ${machine}"
-		stop="$run docker kill slave"
-		if [ "$ACTION" = "stop" ]; then
-			$stop
-			$run "sudo ufw deny 1099 && sudo ufw reload" 2>/dev/null
-		else
-			ip=$(docker-machine ip ${machine})
-			start="$run docker run --rm --detach --publish 1099:1099 --name slave --env IP=$ip wscherphof/jmeter:3.2"
-			if [ "$ACTION" = "restart" ]; then
-				$stop
-				$start
-			elif [ "$ACTION" = "start" ]; then
-				$run "sudo ufw allow 1099 && sudo ufw reload" 2>/dev/null
-				$start
-			else
-				usage; exit 1
-			fi
-		fi
-	done
+	parallel $*
 ;;
 
 help)
