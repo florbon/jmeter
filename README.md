@@ -12,24 +12,24 @@ Prerequitites:
 
 Usage:
 
-jmeter run JMX MACHINE [REMOTE_HOST...]
+jmeter run JMX MACHINE [REMOTE_MACHINE...]
   Run the given test in non-gui mode, locally or remote, generating
   a dashboard report.
-  JMX             Path to the .jmx file.
-  MACHINE         The docker-machine that should run the test.
-  REMOTE_HOST...  Any number of host names or IP addresses of remote
-                  slave servers to use for distributed testing.
-                  If unset, the test is run locally.
+  JMX                Path to the .jmx file.
+  MACHINE            The docker-machine that should run the test.
+  REMOTE_MACHINE...  Any number of names of docker-machines with remote
+                     slave servers to use for distributed testing.
+                     If unset, the test is run locally.
 
-jmeter server ACTION MACHINE
+jmeter server ACTION MACHINE[...]
   Manage remote JMeter slave servers.
   ACTION   Either start, stop, or restart.
-  MACHINE  The targeted docker-machine.
+  MACHINE  One or more targeted docker-machines.
 
-jmeter perfmon ACTION MACHINE
+jmeter perfmon ACTION MACHINE[...]
   Manage the PerfMon Server Agent on application servers.
   ACTION   Either start, stop, or restart.
-  MACHINE  The targeted docker-machine.
+  MACHINE  One or more targeted docker-machines.
 
 jmeter help
   Display this message.
