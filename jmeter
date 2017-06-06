@@ -83,11 +83,11 @@ perfmon ()
 	start="$run docker run --rm --detach --publish 4444:4444 --name perfmon wscherphof/perfmon:2.2.1"
 	stop="$run docker kill perfmon"
 	if [ "$action" = "start" ]; then
-		$run "sudo ufw allow 4444 && sudo ufw reload" 2>/dev/null
+		$run "sudo ufw allow 4444 && sudo ufw reload" &>/dev/null
 		report "$start" "$machine"
 	elif [ "$action" = "stop" ]; then
 		report "$stop" "$machine"
-		$run "sudo ufw deny 4444 && sudo ufw reload" 2>/dev/null
+		$run "sudo ufw deny 4444 && sudo ufw reload" &>/dev/null
 	elif [ "$action" = "restart" ]; then
 		report "$stop" "$machine"
 		report "$start" "$machine"
@@ -104,7 +104,7 @@ server ()
 	stop="$run docker kill slave"
 	if [ "$action" = "stop" ]; then
 		report "$stop" "$machine"
-		$run "sudo ufw deny 1099 && sudo ufw reload" 2>/dev/null
+		$run "sudo ufw deny 1099 && sudo ufw reload" &>/dev/null
 	else
 		ip=$(docker-machine ip ${machine})
 		start="$run docker run --rm --detach --publish 1099:1099 --name slave --env IP=$ip wscherphof/jmeter:3.2"
@@ -112,7 +112,7 @@ server ()
 		report "$stop" "$machine"
 		report "$start" "$machine"
 		elif [ "$action" = "start" ]; then
-			$run "sudo ufw allow 1099 && sudo ufw reload" 2>/dev/null
+			$run "sudo ufw allow 1099 && sudo ufw reload" &>/dev/null
 		report "$start" "$machine"
 		else
 			usage; exit 1
@@ -125,7 +125,7 @@ case "$1" in
 run)
 	JMX="$2"
 	MACHINE="$3"
-	docker-machine scp $(absolute ${JMX}) ${MACHINE}:jmx >/dev/null
+	docker-machine scp $(absolute ${JMX}) ${MACHINE}:jmx 1>/dev/null
 
 	shift 3
 	REMOTE_MACHINES="$*"
@@ -142,25 +142,25 @@ run)
 
 	echo "* starting test..."
 	run="docker-machine ssh ${MACHINE}"
-	$run "sudo ufw allow 60000 && sudo ufw reload" 2>/dev/null
+	home="$(docker-machine ssh ${MACHINE} pwd)"
+	$run "sudo ufw allow 60000 && sudo ufw reload" &>/dev/null
 	$run docker run --rm --name master \
 		${environment} \
-		--volume /home/docker/jmx:/jmx \
-		--volume /home/docker/results:/results \
+		--volume ${home}/jmx:/jmx \
+		--volume ${home}/results:/results \
 		--publish 60000:60000 \
 		wscherphof/jmeter:3.2 \
 		master ${REMOTE_HOSTS}
-
 	code="$?"
 
-	DIR="./jmeter-test/$(date "+%Y-%m-%d/%H.%M.%S")"
-	mkdir -p ${DIR}
-
-	docker-machine scp -r ${MACHINE}:results $(absolute ${DIR}) >/dev/null
+	echo "* fetching results..."
+	results="./jmeter-test/$(date "+%Y-%m-%d/%H.%M.%S")"
+	mkdir -p ${results}
+	docker-machine scp -r ${MACHINE}:${home}/results $(absolute ${results}) >/dev/null
 	if [ "$code" = "0" ]; then
-		echo "* results saved in ${DIR}"
+		echo "* results saved in ${results}"
 	else
-		echo "* logs saved in ${DIR}"
+		echo "* logs saved in ${results}"
 		exit ${code}
 	fi
 ;;
